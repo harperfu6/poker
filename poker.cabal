@@ -27,7 +27,7 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Cards, Hands
   other-modules:
       Paths_poker
   hs-source-dirs:

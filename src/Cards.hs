@@ -4,6 +4,7 @@ module Cards
 , allCards
 , cardSuit
 , cardNumber
+, cardStrength
  )
 where
 
@@ -38,4 +39,11 @@ cardSuit :: Card -> Suit
 cardSuit (Card _ s) = s
 
 cardNumber :: Card -> Int
+cardNumber (Card 14 _) = 1 -- Aは14のため
 cardNumber (Card n _) = n
+
+cardStrength :: Card -> Int
+cardStrength (Card n _) = n
+
+
+
