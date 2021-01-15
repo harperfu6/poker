@@ -1,6 +1,23 @@
 module Hands
 ( Hand -- データコンストラクタはエクスポートしない
 , toHand, fromHand -- toHandを使うことで「手」が保証される
+, PokerHand(..)
+, pokerHand
+----
+-- hint (後々思考ルーチンを作るのに役立つ可能性があるため)
+, straightHint
+, flushHint
+, nOfKindHint
+----
+-- hand
+, straightFlush
+, fourOfAKind
+, fullHouse
+, flush
+, straight
+, threeOfAKind
+, twoPair
+, onePair
  )
 where
 
@@ -40,34 +57,78 @@ data PokerHand
 
 
 -- ハンドの種類が同じ場合，ハンドを構成する最強カードが含まれている方が勝ち
+-- fmap ($h) hands :: [Maybe (PokerHand, Card)]
+-- 上記の説明：handsの要素をfとすると，f hを各fについて適用していく
+-- この中から最強のハンドを取得する．mplusは両辺がJustの場合左返すので強い順から判定する
 pokerHand :: Hand -> (PokerHand, Card)
-pokerHand = undefined
+	-- lは[Card]
+pokerHand h@(Hand l) =
+	case foldl mplus Nothing $ fmap ($h) hands of
+		Just pc -> pc
+		Nothing -> (HighCards, last l)
+	where
+		-- ハンド関数のリスト
+		-- hadnsにHand型を適用し，[Maybe (PokerHand, Card)]を取得する
+		hands :: [Hand -> Maybe (PokerHand, Card)]
+		hands =
+			[ straightFlush
+			, fourOfAKind
+			, fullHouse
+			, flush
+			, straight
+			, threeOfAKind
+			, twoPair
+			, onePair
+			]
+
+
+
+
 
 -- pokerHandの中を手続き的に書くのではなく，必要そうな判定処理を関数として定義していく
 onePair :: Hand -> Maybe (PokerHand, Card)
-onePair = undefined
+onePair h = do
+	cs <- nOfKindHint 2 h
+	return (OnePair, last $ concat cs)
 
 twoPair :: Hand -> Maybe (PokerHand, Card)
-twoPair = undefined
+twoPair h = do
+	cs <- nOfKindHint 2 h
+	if length cs == 2
+		then Just (TwoPair, last $ concat cs)
+		else Nothing
 
 threeOfAKind :: Hand -> Maybe (PokerHand, Card)
-threeOfAKind = undefined
+threeOfAKind h = do
+	cs <- nOfKindHint 3 h
+	return (ThreeOfAKind, last $ concat cs)
 
 straight :: Hand -> Maybe (PokerHand, Card)
-straight = undefined
+straight h = do
+	c <- straightHint h
+	return (Straight, c)
 
 flush :: Hand -> Maybe (PokerHand, Card)
-flush = undefined
+flush h = do
+	c <- flushHint h
+	return (Flush, c)
 
 fullHouse :: Hand -> Maybe (PokerHand, Card)
-fullHouse = undefined
+fullHouse h = do
+	cs1 <- nOfKindHint 3 h
+	cs2 <- nOfKindHint 2 h
+	return (FullHouse, maximum $ concat cs1 ++ concat cs2)
 
 fourOfAKind :: Hand -> Maybe (PokerHand, Card)
-fourOfAKind = undefined
+fourOfAKind h = do
+	cs <- nOfKindHint 4 h
+	return (FourOfAKind, maximum $ concat cs)
 
 straightFlush :: Hand -> Maybe (PokerHand, Card)
-straightFlush = undefined
-
+straightFlush h = do
+	c <- straightHint h
+	d <- flushHint h
+	return (StraightFlush, max c d)
 
 
 
