@@ -35,6 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , random-shuffle
+    , safe
   default-language: Haskell2010
 
 executable poker-exe
@@ -48,6 +49,7 @@ executable poker-exe
       base >=4.7 && <5
     , poker
     , random-shuffle
+    , safe
   default-language: Haskell2010
 
 test-suite poker-test

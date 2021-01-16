@@ -117,7 +117,7 @@ fullHouse :: Hand -> Maybe (PokerHand, Card)
 fullHouse h = do
 	cs1 <- nOfKindHint 3 h
 	cs2 <- nOfKindHint 2 h
-	return (FullHouse, maximum $ concat cs1 ++ concat cs2)
+	return (FullHouse, last $ concat cs1)
 
 fourOfAKind :: Hand -> Maybe (PokerHand, Card)
 fourOfAKind h = do
