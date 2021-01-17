@@ -5,8 +5,10 @@ import Hands
 
 import System.Random.Shuffle
 import Control.Monad
+import Control.Applicative
 import Safe
 import Data.Char
+import Data.Maybe
 
 -- hand test
 -- main :: IO ()
@@ -24,38 +26,76 @@ main = do
 	deck <- shuffleM allCards
 	case getHand deck of
 		Nothing -> error "予期せぬエラー"
-		Just (hand, deck) -> playPoker hand deck
+		Just res -> matchPoker res
 	ynQuestion "-- もう一度やる？" main (putStrLn "-- またね")
 
-playPoker :: Hand -> Deck -> IO ()
-playPoker hand deck = do
-	discards <- inputDisuse hand
+
+data Player =  Player | Enemy deriving Eq
+
+
+showPlayerName :: Player -> String
+showPlayerName Player = "あなた"
+showPlayerName Enemy = "あいて"
+
+matchPoker :: (Hand, Deck) -> IO ()
+matchPoker (mhand, deck) = do
+	(mres, ndeck, nmhand) <- playPoker mhand deck Player
+	case getHand ndeck of
+		Nothing -> error "予期せぬエラー"
+		Just (ehand, odeck) -> do
+			(eres, _, nehand) <- playPoker ehand odeck Enemy
+			printResult nmhand nehand mres eres
+
+
+playPoker :: Hand -> Deck -> Player -> IO ((PokerHand, Card), Deck, Hand)
+playPoker hand deck player = do
+	discards <- if player == Player
+		then inputDisuse hand
+		else aiDisuse hand
 	case drawHand deck discards hand of
 		Nothing -> error "予期せぬエラー"
-		Just (nhand, _) -> do
-			printHand [] nhand
-			printResult $ pokerHand nhand
+		Just (nhand, ndeck) -> do
+			let res = pokerHand hand
+			return (res, ndeck, nhand)
 
 inputDisuse :: Hand -> IO DiscardList
 inputDisuse hand = do
-	printHand [] hand 
-	putStrLn "-- 捨てるカードを選んでください"
-	gotDisuse <- getDiscardList hand
-	case gotDisuse of
-		Nothing -> do
-			putStrLn "-- 1~5の数値を並べて入力してね"
-			inputDisuse hand
-		Just disuses -> do
-			printHand disuses hand
-			ynQuestion "-- これでいい?" (return disuses) (inputDisuse hand)
+  printHand [] hand Player
+  putStrLn "-- 捨てるカードを選んでね"
+  gotDisuse <- getDiscardList hand
+  case gotDisuse of
+    Nothing -> do
+      putStrLn "-- 1~5の数値を並べて入力してね"
+      inputDisuse hand
+    Just disuses -> do
+      printHand disuses hand Player
+      ynQuestion "-- あなた：これでいい？" (return disuses) (inputDisuse hand)
+
+aiDisuse :: Hand -> IO DiscardList
+aiDisuse hand = do
+	let res = aiSelectDiscards hand
+	printHand res hand Enemy
+	putStrLn "---あいて:これでいいよ！"
+	return res
 
 
-printHand :: DiscardList -> Hand -> IO ()
-printHand dis hand = putStrLn $ "-- 手札 : " ++ showChangeHand dis hand
+----
+printResult :: Hand -> Hand -> (PokerHand, Card) -> (PokerHand, Card) -> IO ()
+printResult mhand ehand mres@(mph, mcard) eres@(eph, ecard) = do
+	putStrLn "**** 結果発表！ ****"
+	printHand [] mhand Player
+	printHand [] ehand Enemy
+	putStrLn $ concat ["あなたの手札は ", show mph, " で，最強のカードは ", show mcard, " でした"]
+	putStrLn $ concat ["あいての手札は ", show eph, " で，最強のカードは ", show ecard, " でした"]
+	case judgeVictory mres eres of
+		LT -> putStrLn "あなたの負けです"
+		EQ -> putStrLn "引き分けです"
+		GT -> putStrLn "あなたの勝ちです"
 
-printResult :: (PokerHand, Card) -> IO ()
-printResult (ph, card) = putStrLn $ concat
-	["***** あなたの手札は ", show ph, " で，最強のカードは ", show card, " でした*****"]
+
+printHand :: DiscardList -> Hand -> Player -> IO ()
+printHand dis hand player = putStrLn $ "-- " ++ showPlayerName player ++ " の手札 : " ++ showChangeHand dis hand
+
 
 showChangeHand :: DiscardList -> Hand -> String
 showChangeHand dis h =
@@ -74,11 +114,6 @@ ynQuestion s yes no = do
 		_ -> do
 			putStrLn "-- `y`か`n`で入力してね"
 			ynQuestion s yes no
-
-
-
-
-
 
 
 randomHand :: IO (Maybe Hand)
@@ -143,4 +178,61 @@ drawHand deck dis h =
 		-- ndeck <- return nr
 		-- return (hand, ndeck)
 	in (,) <$> toHand (take 5 $ n1 ++ deck) <*> return nr
+
+
+
+
+----------------------
+-- CPU AIの処理
+----------------------
+
+-- 入れ替えるカードを判断する
+--- とりあえず役が揃っているもの以外は捨てる
+aiSelectDiscards :: Hand -> DiscardList
+aiSelectDiscards hand =
+	case straightHint hand `mplus` flushHint hand *> Just [] of
+		Nothing -> nOfKindDiscards hand
+		Just xs -> xs
+
+-- 役が揃っているすべてのカードを返す
+allNOfKinds :: Hand -> [Card]
+allNOfKinds hand = concat . concat
+	$ catMaybes [nOfKindHint 2 hand, nOfKindHint 3 hand, nOfKindHint 4 hand]
+
+-- 上記以外を捨てる
+nOfKindDiscards :: Hand -> DiscardList
+nOfKindDiscards hand = filter (flip notElem $ allNOfKinds hand) $ fromHand hand
+
+
+-- 場の状況をAiHint,「気まぐれに選ぶ」を乱数（副作用）とする
+--AiHint  Hand -> IO DiscardList
+--AiHint = undefined
+
+
+-- 勝敗判定
+judgeVictory :: (PokerHand, Card) -> (PokerHand, Card) -> Ordering
+judgeVictory l r = compare (pullStrength l) (pullStrength r)
+	where
+		pullStrength :: (PokerHand, Card) -> (PokerHand, Int)
+		pullStrength = fmap cardStrength
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
