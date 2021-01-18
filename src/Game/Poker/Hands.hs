@@ -1,4 +1,4 @@
-module Hands
+module Game.Poker.Hands
 ( Hand -- データコンストラクタはエクスポートしない
 , toHand, fromHand -- toHandを使うことで「手」が保証される
 , PokerHand(..)
@@ -18,12 +18,23 @@ module Hands
 , threeOfAKind
 , twoPair
 , onePair
+----
+, DiscardList
+, Deck
+, getHand
+, drawHand
+, getDiscardList 
+, judgeVictory 
  )
 where
 
+import Game.Poker.Cards
 import Data.List
+
+import Safe
+import Data.Char
 import Control.Monad
-import Cards
+import Game.Poker.Cards
 
 -- Haskellは部品をつなげる糊がいくらでもあるので，とりあえず必要だと思った部品を作りまくることが大事
 -- Haskellでは型を作るのが簡単なので，ちょっとした条件の保証や軽い意味付けを与えるためによく型を定義する
@@ -191,17 +202,63 @@ nOfKindHint n (Hand h) =
 		cards = filter ((==n) . length) $ groupBy (\x y -> cardNumber x == cardNumber y) h
 
 
+-------
+
+type DiscardList = [Card] -- 捨札
+type Deck = [Card] -- 山札
+
+-- 山札から手札を取り出す
+getHand :: Deck -> Maybe (Hand, Deck)
+getHand deck = do
+	hand <- toHand . take 5 $ deck
+	return (hand, drop 5 deck)
+
+-- 捨札を作成する
+getDiscardList :: Hand -> IO (Maybe DiscardList)
+getDiscardList h = do
+	input <- getLine
+	-- return . Just . selectByIndexes (fromHand h) $ toIntList input
+	return $ do
+		intList <- toIntList input
+		res <- selectByIndexes (fromHand h) intList
+		return res
 
 
+toIntList :: String -> Maybe [Int]
+-- map (\x -> read ((:[]) x):: Int) "123"
+-- toIntList = map $ read . (:[])
+toIntList str =
+	if and $ map isDigit str
+		then Just $ reads str
+		else Nothing
+	where
+		reads :: String -> [Int]
+		reads = map $ read . (:[])
+
+selectByIndexes :: [a] -> [Int] -> Maybe [a]
+-- selectByIndexes l = map ((l!!).(subtract 1))
+-- atMay: !!の安全版
+-- sequence: モナドをリストの外に出す
+selectByIndexes l = sequence . map ((atMay l).(subtract 1))
+
+-- 手札の交換処理
+drawHand :: Deck -> DiscardList -> Hand -> Maybe (Hand, [Card])
+drawHand deck dis h =
+	let
+		-- n1 = filter (\c -> notElem c dis) (fromHand h)
+		n1 = filter (flip notElem dis) (fromHand h)
+		nr = drop (5 - length n1) deck
+	-- in do
+		-- hand <- toHand . take 5 $ n1 ++ deck
+		-- ndeck <- return nr
+		-- return (hand, ndeck)
+	in (,) <$> toHand (take 5 $ n1 ++ deck) <*> return nr
 
 
-
-
-
-
-
-
-
-
-
+-- 勝敗判定
+judgeVictory :: (PokerHand, Card) -> (PokerHand, Card) -> Ordering
+judgeVictory l r = compare (pullStrength l) (pullStrength r)
+	where
+		pullStrength :: (PokerHand, Card) -> (PokerHand, Int)
+		pullStrength = fmap cardStrength
 

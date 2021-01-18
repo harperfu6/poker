@@ -1,4 +1,4 @@
-module Cards
+module Game.Poker.Cards
 ( Suit(..)
 , Card -- カード型はカードを独自に作成されないように，データコンストラクトをあえてエクスポートしない
 , allCards
@@ -10,10 +10,12 @@ where
 
 
 -- トランプの定義
-data Suit = Hearts | Diamonds | Clubs | Spades deriving (Show, Read, Eq, Ord, Enum)
+data Suit = Hearts | Diamonds | Clubs | Spades
+	deriving (Show, Read, Eq, Ord, Enum)
 -- Ordした際に先の要素が湯煎されるためIntを先にもってくる
 -- 好き勝手に生成できないようにするために，Readのインスタンスにしない，Showは独自で定義
-data Card = Card Int Suit deriving (Eq, Ord) 
+data Card = Card Int Suit
+	deriving (Eq, Ord) 
 
 -- 番号を文字列にする
 showCardNumber :: Int -> String
